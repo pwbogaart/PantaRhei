@@ -1,0 +1,561 @@
+---
+title:  "Panta Rhei - R package for sankey diagrams"
+author: "Patrick Bogaart (Statistics Netherlands)"
+output:
+  pdf_document:
+    number_sections: yes
+  rmarkdown::html_vignette:
+    number_sections: true
+    toc: true
+vignette: >
+  %\VignetteIndexEntry{Panta Rhei}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteDepends{tibble}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+# Introduction
+
+*Panta Rhei*; everything flows.
+
+'PantaRhei' is an R package to produce Sankey diagrams.
+Sankey diagrams visualize the flow of conservative substances through a system.
+They typically consists of a network of nodes, and fluxes between them,
+where the total balance in each internal node is 0, i.e. input equals output.
+Sankey diagrams differ from so-called alluvial diagrams because they allow for cyclic flows:
+flows originating from a single node can, either direct or indirect, contribute to the input of that same node.
+Sankey diagrams are typically used to display energy systems, material flow accounts etc.
+'PantaRhei' employs a simple syntax to set up diagrams using data in tables, such as spread sheets.
+'PantaRhei' is capable to produce publication-quality diagrams.
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width  = 7,
+  fig.height = 5
+)
+options(rmarkdown.html_vignette.check_title = FALSE)
+```
+
+```{r setup, include=FALSE}
+rm(list=ls())
+library(PantaRhei)
+library(tibble) # loads: tribble()
+library(grid)   # loads: gpar()
+```
+
+As an example of the power of 'PantaRhei', consider the next example, based on data from Statistics Netherlands and an original diagram design by [Haas et al, (2005)](https://doi.org/10.1111/jiec.12244))
+
+```{r echo=FALSE, fig.width=9, fig.height=7}
+data(MFA)
+
+dblue <- "#00008B" # Dark blue
+
+my_title <- "Material Flow Account"
+attr(my_title, "gp") <- grid::gpar(fontsize=18, fontface="bold", col=dblue)
+
+# node style
+ns <- list(type="arrow",gp=gpar(fill=dblue, col="white", lwd=2),
+           length=0.7,
+           label_gp=gpar(col=dblue, fontsize=8),
+           mag_pos="label", mag_fmt="%.0f", mag_gp=gpar(fontsize=10,fontface="bold",col=dblue))
+
+sankey(MFA$nodes, MFA$flows, MFA$palette,
+       max_width=0.1, rmin=0.5,
+       node_style=ns,
+       page_margin=c(0.15, 0.05, 0.1, 0.1),
+       legend=TRUE, title=my_title,
+       copyright="Statistics Netherlands")
+```
+
+Don't get intimidated by this example. We will start gently.
+
+# A Simple example.
+
+To create a Sankey diagram, you'll need three different data frames, providing information on
+
+* nodes
+* flows
+* colors
+
+The **nodes** data frame provides information on the nodes: at least an unique identifier and their position.
+
+* ID (character) to identify the node
+* x (numeric) the x-coordinate of the node (in arbitrarly units)
+* y (numeric) the y-coordinate of the node.
+
+There are some additional fields, but these are optional, and will be described later.
+
+Let's start with a simple example; using two nodes *A* and *B*. The data frame can be set up as follows:
+```{r}
+nodes <- data.frame(
+  ID =c("A", "B"),
+  x  = c(1, 2),
+  y  = c(0, 0)
+)
+```
+
+**note** For real-world applications, data are likely read from Excel spreadsheets or similar; look at the end of this manual to see some examples.
+
+```{r echo=FALSE, results='asis'}
+knitr::kable(nodes)
+```
+
+The **flows** data frame provides information on the flow between the nodes. it requires at minimum
+
+* from (character) the ID of the starting node
+* to (character) the ID of the ending node
+* quantity (numeric) the magnitude of the flow.
+
+```{r}
+flows <- data.frame(
+  from      = "A",
+  to        = "B",
+  quantity  = 10.0
+)
+```
+```{r echo=FALSE, results='asis'}
+knitr::kable(flows)
+```
+
+A Sankey diagram is then produced by calling
+```{r, message=FALSE}
+sankey(nodes, flows)
+```
+
+Note the following:
+
+* The two nodes A and B are plotted next to each other.
+The coordinates (1,0) and (2,0) are scaled such that the diagram takes up the whole plot area (minus a margin)
+* Node IDs are plotted below the nodes
+* For each node, the total flow that passes through that node is accumulated (the node *magnitude*), 
+and plotted in the node.
+* An automatic color has been chosen.
+
+# A simple material flow.
+
+This example is a bit more complex We introduce the following extensions:
+
+* More nodes
+* Additional flow types
+* Node labels, and node placement.
+* legends
+
+It is often useful to have node labels that are descriptive,
+or to have labels that are in a different language.
+To this end, a character column `label` is available.
+Note that by default (as in example 1) the node ID is used as label.
+
+It is also useful to have some control on label placement.
+This can be specified by the column `label_pos` which accepts the values
+`left`, `right`, `above` and `below`, which act as expected.
+
+The following example specifies 4 nodes for a highly stylized material flow diagram.
+
+```{r}
+nodes <- tribble(
+  ~ID,    ~label,          ~x, ~y, ~label_pos,
+  "imp",  "Import",         1,  2, "left",
+  "exp",  "Export",         5,  2, "right",
+  "dom",  "Domestic use",   5,  1, "above",
+  "proc", "Processing",     3,  1, "below"
+)
+```
+```{r echo=FALSE, results='asis'}
+knitr::kable(nodes)
+```
+
+It is also useful to have multiple flow types, or *substances*,
+representing for instance different materials, such as biotic and mineral,
+or different energy carriers, such as oil, gas, coal and electricity,
+or different food commodities, as in the next example.
+
+```{r}
+flows <- tribble(
+  ~from,  ~to,   ~substance, ~quantity,
+  "imp",  "exp", "Cocoa",     10,
+  "imp",  "proc", "",          5,
+  "proc", "dom",  "",          2,
+  "proc", "exp",  "",          3,
+  "imp",  "exp",  "Sugar",     2,
+  "imp",  "proc", "",          6,
+  "proc", "dom",  "",          5,
+  "proc", "exp",  "",          1
+)
+```
+```{r echo=FALSE, results='asis'}
+knitr::kable(flows)
+```
+
+Note there that it is not required to repeat the `substance` labels for every row in the table.
+For rows where it is left blank, the last specified value is re-used.
+
+The following example uses these nodes and flows to draw a simplified material flow Sankey diagram.
+By adding the option `legend=TRUE` a legend is included.
+
+```{r}
+sankey(nodes,flows, legend=TRUE)
+```
+
+## Specifying flow colors
+
+In the previous example, colors for the various flowing substances, in this example cocoa and sugar,
+were defined automatically (to be precise: using the `rainbow()` function of base R).
+
+Colors can be specified by using a separate 'colors' data frame:
+```{r}
+colors <- tribble(
+  ~substance, ~color,
+  "Cocoa",    "chocolate",
+  "Sugar",    "#FFE4C4"
+)
+```
+```{r echo=FALSE, results='asis'}
+knitr::kable(colors)
+```
+
+Note that all color specifications that R understands are allowed.
+For example, red can be specified by `"red"`, `"#FF00000"` and `rgb(1,0,0)`.
+(use `colors()` or search the internet for `R colors` to learn more about R color names)
+
+```{r}
+sankey(nodes, flows, colors, legend=TRUE)
+```
+
+## Node placement
+
+Node locations can be specified relative to each other.
+In the next example the 'Domestic use' node is placed at the same x-coordinate as the Export node,
+by using the *relative* x-coordinate `"exp"` 
+
+```{r}
+nodes <- tribble(
+  ~ID,    ~label,          ~x, ~y, ~label_pos,
+  "imp",  "Import",         "1",   2,   "left",
+  "exp",  "Export",         "5",   2,   "right",
+  "dom",  "Domestic use",   "exp", 1,  "above",
+  "proc", "Processing",     "3",   1,   "below"
+)
+sankey(nodes, flows, colors, legend=TRUE)
+```
+
+Note that we could also place the nodes at a certain distance, e.g. by specifying `exp+1` to ensure that node `dom` is always 1 unit to the right of node `exp`.
+
+Also note that while the Export node is at the same y-coordinate as Import,
+the flow between them looks crooked, because of the width of the total flow associated with these nodes differ, but only the center points of the nodes are aligned (i.e. have the specified y coordinate)
+
+This can be solved by setting the y-coordinate of the Export node to `imp`, e.g. a reference to the Import node.
+This reference is picked up be the code, and used to force a horizontal flow path.
+The next example illustrates this,
+```{r}
+nodes <- tribble(
+  ~ID,    ~label,          ~x, ~y, ~label_pos,
+  "imp",  "Import",         "1",   "2",    "left",
+  "exp",  "Export",         "5",   "imp",  "right",
+  "dom",  "Domestic use",   "exp", "proc", "above",
+  "proc", "Processing",     "3",   "1",    "below"
+)
+sankey(nodes, flows, colors, legend=TRUE)
+```
+
+Now the flows from Import to Export, and from Processing to Dometsic use, are rendered as a straight path.
+
+Note that relative coordinates can refer to both absolute coordinates, or to another relative coordinate.
+This allows to set up diagrams with absolute coordinates for just one node, and all other nodes having coordinates relative to each other. This is illustrated in the next example
+
+```{r}
+nodes <- tribble(
+  ~ID,    ~label,          ~x, ~y, ~label_pos,
+  "imp",  "Import",         "0",       "0",    "left",
+  "exp",  "Export",         "proc+2", "imp",   "right",
+  "dom",  "Domestic use",   "exp",     "proc", "above",
+  "proc", "Processing",     "imp+2",   "imp-1", "below"
+)
+sankey(nodes, flows, colors, legend=TRUE)
+```
+
+## Node layout.
+
+There are several options to control node layout. The option `node_style` (which must be a list) can be used to select a different type of node, e.g. `"arrow"`, which uses a chevron-type arrow instead of the default box.
+```{r}
+sankey(nodes, flows, colors, node_style=list(type="arrow"), legend=TRUE)
+```
+
+Colors can be specified by also providing a list of graphical parameters, using the same format as base R's `grid` package (i.e. the output of `gpar()`).
+
+```{r}
+library(grid) # loads: gpar()
+ns <- list(type="arrow", gp=gpar(fill="lightblue", col="white", lwd=4))
+sankey(nodes, flows, colors, node_style=ns, legend=TRUE)
+```
+
+## Node magnitudes
+
+The total amount of flow through a node (`node magnitude') is plotted near the node.
+Node placement can be specified by using either a column `mag_pos` in the *nodes* data.frame,
+or by setting the option `mag_pos` in the call to `sankey()`,
+Valid options are:
+
+* `left`, `right`, `below`,`above`  -- node magnitude is plotted *left* / *right* / etc. of the node.
+* `inside` -- centered within the node
+* `label` -- along with the node label.
+
+note further that in the following example:
+
+* The `from` field is not specified in for each individual flow.
+If an empty string is given, the previous value is re-used. This works similar for the `to` and `what` fields.
+* In this example, only a single flow substance type is used,
+which is internally known as `<any>`
+(used in the Colors data.frame to refer to this flow type).
+* An `arrow` node type, specified by setting `node_type`.
+```{r}
+nodes <- tribble(
+  ~ID,     ~label,       ~x,  ~y,       ~label_pos,
+  "in",    "Import",       0,  "1",    "left",
+  "proc",  "Processing",   2,  "0",    "below",
+  "out",   "Export",       4,  "in",   "right",
+  "use",   "Domestic use", 4,  "proc", "above"
+)
+flows <- tribble(
+  ~from,   ~to,     ~quantity,
+  "in",    "out",    3.0,
+  "",      "proc",   2.0,
+  "proc",  "out",    1.5,
+  "",      "use",    0.5
+)
+colors <- tribble(
+  ~substance,   ~color,
+  "<any>",      "cornflowerblue",
+)
+
+ns <- list(type="arrow", gp=gpar(fill="lightblue", col="white", lwd=4), mag_pos="label")
+sankey(nodes, flows, colors, node_style=ns)
+```
+
+## Cycling.
+
+The crux of true Sankey diagrams is in recycling; flows that feed pack into the process.
+This can be achieved by introducing additional nodes.
+
+In the next example, the nodes R1, R2 and R3 are introduced ('R' for 'recycling').
+Note that
+
+* `label_pos` for R1 is set to `none` to prevent a label
+* the ID of R3 (*in the nodes data.frame only!*) is preceded by a dot to make it 'hidden' (similar to hidden files in *NIX operating systems)
+* we used the option `grill=TRUE` in the call to `sankey()` to show a grid, which may be helpful when positioning the nodes.
+
+```{r}
+nodes <- tribble(
+  ~ID,     ~label,         ~x,   ~y,      ~dir,    ~label_pos,
+  "in",    "Import",       0,   "2",     "right", "left",
+  "proc",  "Processing",   4,   "0",     "right", "below",
+  "out",   "Export",       8,   "in",    "right", "right",
+  "use",   "Domestic use", 8,   "proc",  "right", "above",
+  "R1",    "",             7,   "-1.5",  "down",  "none",
+  "R2",    "Recycling",    4,   "-3",    "left",  "below",
+  ".R3",   "",             1,   "-1.5",  "up",    "none"
+)
+flows <- tribble(
+  ~from,    ~to,    ~quantity,
+  "in",     "out",   3.0,
+  "",       "proc",  2.0,
+  "proc",   "out",   1.5,
+  "",       "use",   0.5,
+  "proc",   "R1",    1.0,
+  "R1",     "R2",    1.0,
+  "R2",     "R3",   1.0,
+  "R3",    "proc",  1.0
+)
+
+colors <- tribble(
+  ~substance, ~color,
+  "<any>",    "cornflowerblue",
+)
+
+ns <- list(type="arrow", gp=gpar(fill="red", col="white", lwd=3), mag_pos="label")
+sankey(nodes, flows, colors, node_style=ns, grill=TRUE)
+```
+
+# Miscelaneous
+
+## Adding a copyright statement
+
+A copyright statement can be added to the lower right of the graph by using the `copyright` option:
+```{r}
+
+timestamp <- format(Sys.Date()) # e.g. 2020-11-28
+copyright <- paste("CBS", timestamp, sep="/") # could also use sprintf("CBS/%s", timestamp)
+
+ns <- list(type="arrow", gp=gpar(fill="red", col="white", lwd=3), mag_pos="label")
+sankey(nodes, flows, colors, node_style=ns, copyright=copyright)
+```
+
+## Increasing margins
+
+By default, a margin of 10% of the page size is used. This can be modified by setting the `page_margin` option.
+It can be either a scalar (margin), a 2-vector (x-margin, y-margin) or 4-vector (left,bottom,right,top).
+
+The following example creates extra space near the bottom.
+```{r}
+sankey(nodes, flows, colors, node_style=ns, copyright=copyright,
+       page_margin=c(0.1, 0.3, 0.1, 0.1))
+```
+
+## Adding a stock node
+
+Usually all internal nodes are in balance: output equals input, but sometimes this isn't the case, e.g. in which a flow is added to some stock of unknown size, and another flow originates from this stock.
+This can be visualized by using a special `stock' node type, as the following example demonstrates:
+
+```{r}
+nodes <- tribble(
+  ~ID,     ~label,       ~x,   ~y,      ~dir,    ~label_pos,
+  "in",    "Import",      0,   "2",     "right", "left",
+  "stock", "Processing",  2,   "0",     "stock", "below",
+  "out",   "Export",      4,   "in",    "right", "right",
+)
+flows <- tribble(
+  ~from,     ~to,      ~quantity,
+  "in",     "out",      1.5,
+  "in",     "stock",    2.0,
+  "stock",   "out",     1.0
+)
+colors <- tribble(
+  ~substance, ~color,
+  "<any>",    "cornflowerblue",
+)
+
+ns <- list(type="arrow", gp=gpar(fill="red", col="white", lwd=4), mag_pos="label")
+sankey(nodes, flows, colors,
+       node_style=ns,
+       page_margin=c(0.1, 0.2, 0.1, 0.1))
+```
+
+## Formatting the legend
+
+```{r}
+nodes <- tribble(
+  ~ID,  ~label,   ~x,   ~y,      ~dir,    ~label_pos,
+  "in",    "Input",  0,   "0",     "right", "left",
+  "out",   "Output", 4,   "in",    "right", "right",
+)
+flows <- tribble(
+  ~from,     ~to,   ~quantity, ~substance,
+  "in",     "out",   1, "Oil",
+  "",       "",      1, "Gas",
+  "",       "",      1, "Biomass",
+  "",       "",      1, "Electricity",
+  "",       "",      1, "Solar",
+  "",       "",      1, "Hydrogen",
+  "",       "",      1, "Wind",
+  "",       "",      1, "Water",
+  "",       "",      1, "Nuclear",
+)
+
+ns <- list(type="arrow", gp=gpar(fill=gray(0.5), col="white", lwd=4), mag_pos="label")
+sankey(nodes, flows, node_style=ns, legend=gpar(filesize=18, col="blue", ncols=2))
+```
+
+
+## Setting  a title.
+
+A title can be added to the Sankey diagram by setting the `title` option:
+```{r}
+ns <- list(type="arrow", gp=gpar(fill=gray(0.5), col="white", lwd=4), mag_pos="label")
+sankey(nodes, flows, node_style=ns, legend=gpar(filesize=18, col="blue", ncols=2),
+       page_margin=c(0.1, 0.1, 0.1, 0.2),
+       title="Panta Rhei")
+```
+
+Different font size, colors etc can be achieved by adding the output of a call to `gpar` as an attribute to the character string.
+```{r}
+my_title <- "Panta Rhei"
+attr(my_title, "gp") <- gpar(fontsize=24, fontface="bold", col="red")
+
+sankey(nodes, flows, node_style=ns, legend=gpar(filesize=18, col="blue", ncols=2),
+       page_margin=c(0.1, 0.1, 0.1, 0.2),
+       title=my_title)
+```
+
+for this end, the convenience function `strformat()` is available:
+```{r}
+sankey(nodes, flows, node_style=ns, legend=gpar(filesize=18, col="blue", ncols=2),
+       page_margin=c(0.1, 0.1, 0.1, 0.2),
+       title=strformat("Panta Rhei", fontsize=18, col="blue"))
+```
+
+
+## Hardcopy outpout
+
+Hardcopy output can be achieved by surrounding the call to `sankey()` by setting up a graphics device, e.g.
+```{r,  eval=FALSE}
+pdf("diagram.pdf", width=10, height=7) # Set up PDF device
+sankey(nodes, flows, colors)           # plot diagram
+dev.off()                              # close PDF device
+```
+
+Tip: If you want to have both visual and hardcopy output, you can put the call to `sankey` in a loop, exporting to the PDF only the second iteration.
+
+## Input from spreadsheets
+
+In these examples, simple data sets where used.
+For real applications, data often is located elsewhere, e.g. in Excel spreadsheets.
+This is no problem; the various R libraries can be used to this end.
+
+Example:
+```{r, eval=FALSE}
+nodes   <- read_xlsx("my_sankey_data.xlsx", "nodes")
+flows   <- read_xlsx("my_sankey_data.xlsx", "flows")
+colors  <- read_xlsx("my_sankey_data.xlsx", "colors")
+sankey(nodes, flows, colors)
+```
+
+Two helper functions are available to check the data sets
+
+* `check_consistency()` which checks the consistency between the Nodes, Flows and Palette, for example by testing of all nodes referred to in the Flows table are defined in the Nodes table.
+* `check_balance()` which checks if all nodes receive as much input as they generate output.
+
+```{r, eval=FALSE}
+check_consistency(nodes, flows, colors)
+check_balance(nodes, flows)
+```
+
+# Final example,
+
+For completeness, here is the example from the introduction.
+The data set is included with the package and can be loaded using
+```{r}
+data(MFA) # Material Flow Account data
+```
+
+which load the MFA data as a list to wrap the nodes, flows, and color palette.
+```{r echo=FALSE}
+print(MFA$nodes)
+```
+```{r echo=FALSE}
+print(MFA$flows)
+```
+
+```{r echo=FALSE}
+print(MFA$palette)
+```
+
+```{r fig.width=9, fig.height=7}
+dblue <- "#00008B" # Dark blue
+
+my_title <- "Material Flow Account"
+attr(my_title, "gp") <- grid::gpar(fontsize=18, fontface="bold", col=dblue)
+
+# node style
+ns <- list(type="arrow",gp=gpar(fill=dblue, col="white", lwd=2),
+           length=0.7,
+           label_gp=gpar(col=dblue, fontsize=8),
+           mag_pos="label", mag_fmt="%.0f", mag_gp=gpar(fontsize=10,fontface="bold",col=dblue))
+
+sankey(MFA$nodes, MFA$flows, MFA$palette,
+       max_width=0.1, rmin=0.5,
+       node_style=ns,
+       page_margin=c(0.15, 0.05, 0.1, 0.1),
+       legend=TRUE, title=my_title,
+       copyright="Statistics Netherlands")
+```
