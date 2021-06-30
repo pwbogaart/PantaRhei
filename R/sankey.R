@@ -804,12 +804,17 @@ sankey <- function(nodes, flows, palette,
     #if (Focus>0) if (i!=Focus) next
     radius <- rmin * my_unit
     auto_alpha <- function(A, B) {
+      # dx <- B2$x - A$x
+      # dy <- B2$y - A$y
       # Compute an automatic slope gradient for the ramp:
-      # half the overall slope, but not steeper than 45%
-      dx <- abs(A$x - B$x)
-      dy <- abs(A$y - B$y)
+      # twice the overall slope, but not steeper than 66%
+      B2 <- rotate_point(B, A, -A$dir)
+      dx <- B2$x - A$x
+      dy <- B2$y - A$y
       a <- atan2(dy,dx)
-      min(a*2, pi/2)
+      if (a>0) a <- min(a*2,  pi/3)
+      if (a<0) a <- max(a*2, -pi/3)
+      a
     }
     alpha <- auto_alpha(A,B)
 
