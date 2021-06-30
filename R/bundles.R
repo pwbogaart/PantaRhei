@@ -20,6 +20,8 @@ plot_bundle <- function(A, B, w, cols, r, alpha)
 
   shape <- which.shape(A, B)
   bends <- which.bends(A, B)
+  # str(shape)
+  # str(bends)
 
   # bundle analysis
   wtotal <- sum(w)
@@ -45,9 +47,12 @@ plot_bundle <- function(A, B, w, cols, r, alpha)
     a <- 0.5                                       # Create node halfway A and B
     mx <- a*A$x + (1-a)*B$x
     my <- a*A$y + (1-a)*B$y
-    M <- node(mx,my,A$dir)
-    if (bends[1]=="left") M <- turn(M,  alpha)          # Give it the right turn
-    else                  M <- turn(M, -alpha)
+    M <- node(mx,my,A$dir, id="M")
+    # if (bends[1]=="left") M <- turn(M,  alpha)          # Give it the right turn
+    # else                  M <- turn(M, -alpha)
+    # bovenstaande werkkte enkel met de abs()/abs() manier om auto_alpha te berekenen.
+    # Nu heeft het een richting, dus altijd gewoon alpha draaien
+    M <- turn(M, alpha)
     r0  <- r
 
     Moff <- .offsets(w)                                             # and offset
