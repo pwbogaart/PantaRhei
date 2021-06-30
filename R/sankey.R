@@ -1197,8 +1197,22 @@ sankey <- function(nodes, flows, palette,
     # compute adjuster for "arrow" boxes"
     if (node_type!="arrow") dx <- 0
 
+    # switch graphical width/height if "down" nodes
+    if (dir=="down") {
+      tmp <- gw
+      gw <- gh
+      gh <- tmp
+    }
+
+    # idem for dx/dy
+    dy <- 0 # horizontal case
+    if (dir=="down") {
+      dy <- dx
+      dx <- 0
+    }
+
     # Label anchor coordinates
-    #if (label_txt=="Material use") browser()
+    #if (label_txt=="Rain") browser()
     lmargin <- 0.2*lfs
     lx <- 0
     xadjust <- 0
@@ -1206,8 +1220,8 @@ sankey <- function(nodes, flows, palette,
     if (grepl("E", label_anchor)) lx <- +gw/2 +lmargin + dx
     #if (grepl("E", label_anchor)) xadjust <- dx
     ly <- 0
-    if (grepl("N", label_anchor)) ly <-  +gh/2 + 1.7*lmargin
-    if (grepl("S", label_anchor)) ly <-  -gh/2 - lmargin
+    if (grepl("N", label_anchor)) ly <-  +gh/2 + 1.7*lmargin + dy
+    if (grepl("S", label_anchor)) ly <-  -gh/2 - lmargin     - dy
     # ... and justifcation
     lj <- c("centre","centre")
     if (grepl("W", label_align)) lj[1] <- "right"
@@ -1221,8 +1235,8 @@ sankey <- function(nodes, flows, palette,
     if (grepl("W", mag_anchor)) mx <- -gw/2 -mmargin - dx
     if (grepl("E", mag_anchor)) mx <- +gw/2 +mmargin + dx
     my <- 0
-    if (grepl("N", mag_anchor)) my <- +gh/2 + 1.7*mmargin
-    if (grepl("S", mag_anchor)) my <- -gh/2 - mmargin
+    if (grepl("N", mag_anchor)) my <- +gh/2 + 1.7*mmargin + dy
+    if (grepl("S", mag_anchor)) my <- -gh/2 - mmargin     - dy
     # ... and justifcation
     mj <- c("centre","centre")
     if (grepl("W", mag_align)) mj[1] <- "right"
