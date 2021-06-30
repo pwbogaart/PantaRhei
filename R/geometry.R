@@ -18,6 +18,15 @@ print.point <- function(x, ...) {
   cat(s)
 }
 
+rotate_point <- function(P, pivot, alpha) {
+  px <- P$x - pivot$x
+  py <- P$y - pivot$y
+  newx <- px * cos(alpha) - py * sin(alpha) + pivot$x
+  newy <- px * sin(alpha) + py * cos(alpha) + pivot$y
+  Prot <- point(newx, newy, paste(P$id, "(rotated)"))
+  Prot
+}
+
 intersect <- function(A1,B1, A2,B2) {
   # Test if lines A1-B1 -- A2-B2 intersect
   S1x <- B1$x - A1$x;     S1y <- B1$y - A1$y;
@@ -27,6 +36,11 @@ intersect <- function(A1,B1, A2,B2) {
   t = ( S2x * (A1$y - A2$y) - S2y * (A1$x - A2$x)) / (-S2x * S1y + S1x * S2y);
 
   collision <- (s >= 0 && s <= 1 && t >= 0 && t <= 1)
+}
+
+plot_point <- function(P, col="black")
+{
+  grid.points(P$x, P$y, pch=16, gp=gpar(col=col))
 }
 
 #### PolyPoint #####
@@ -162,14 +176,14 @@ intersection <- function(A, B, debug=FALSE) {
   AA <- shift(A, 1.0)
   x2 <- AA$x
   y2 <- AA$y
-  if (debug) cat(sprintf("x1, x2 = (%.1f,%.1f), (%.1f,%.1f)\n", x1,y1, x2,y2))
+  if (debug) cat(sprintf("A,AA = (%.1f, %.1f), (%.1f, %.1f)\n", x1,y1, x2,y2))
 
   x3 <- B$x
   y3 <- B$y
   BB <- shift(B, 1.0)
   x4 <- BB$x
   y4 <- BB$y
-  if (debug) cat(sprintf("x3, x4 = (%.1f,%.1f), (%.1f,%.1f)\n", x3,y3, x4,y4))
+  if (debug) cat(sprintf("B, BB = (%.1f, %.1f), (%.1f, %.1f)\n", x3,y3, x4,y4))
 
   nomx <- (x1*y2-y1*x2)*(x3-x4) - (x1-x2)*(x3*y4-y3*x4)
   nomy <- (x1*y2-y1*x2)*(y3-y4) - (y1-y2)*(x3*y4-y3*x4)
@@ -207,6 +221,7 @@ Lpath <- function(A, B, r, debug=FALSE) {
   if (debug) cat(sprintf("Lpath(r=%.1f\n", r))
   N <- 20
 
+  # browser()
   AB <- intersection(A,B)
   # grid.points(ab[1], ab[2], pch=16, size=unit(1,"native"), gp=gpar(col="red"))
   if (leftright(A, AB, B) < 0) { # bend to left
@@ -232,13 +247,14 @@ Lpath <- function(A, B, r, debug=FALSE) {
   yy <- C$y + r * sin(theta)
   xxx <- c(A$x, xx, B$x)
   yyy <- c(A$y, yy, B$y)
-  # grid.lines(xxx,yyy, default.units = "native")
+  if (debug) grid.lines(xxx,yyy, default.units = "native")
   list(x=xxx, y=yyy)
 }
 
 .connect <- function(A, B, bend="", w, r=0.0, offset=0.0, col="black") {
   # cat(sprintf(".connect w=%.1f offset=%.1f\n", w, offset))
 
+  #browser()
   dx <- node_diff(A,B)[1]
   dy <- node_diff(A,B)[2]
 
@@ -280,6 +296,10 @@ Lpath <- function(A, B, r, debug=FALSE) {
   }
 
   grid.polygon(xx, yy, default.units="native", gp=gpar(col=NA, fill=col))
+  # plot_point(A)
+  # plot_point(B)
+  # plot_point(A1, "blue")
+  # plot_point(B1, "blue")
 }
 
 
